@@ -1,11 +1,16 @@
 .PHONY: crawl
 crawl:
-	scrapy crawl spider -a countries=it -a max_hotels=1200
+	scrapy crawl spider -a max_hotels=100 -a agg_days=1
 
 
 .PHONY: fast
 fast:
-	scrapy crawl spider -a countries=it -a fast=1
+	scrapy crawl spider -a countries=it,sr,za -a max_hotels=10 -a agg_days=1
+
+.PHONY: countries
+countries:
+	scrapy crawl countries
+
 
 .PHONY: sync
 sync:

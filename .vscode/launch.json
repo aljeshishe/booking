@@ -17,9 +17,10 @@
             "name": "Python Debugger: scrapy",
             "type": "debugpy",
             "request": "launch",
-            "program": "/Users/alexeygrachev/git/booking/.venv/bin/scrapy",
+            "program": ".venv/bin/scrapy",
             "console": "integratedTerminal",
-            "args": "crawl spider -a countries=it -a max_hotels=2"
+            //"args": "crawl spider -a max_hotels=100 -a shuffle=1"
+            "args": "crawl countries"
         }
 
     ]
