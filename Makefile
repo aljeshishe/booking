@@ -1,11 +1,19 @@
-.PHONY: crawl
-crawl:
-	scrapy crawl spider -a max_hotels=100 -a agg_days=1
+.PHONY: prices_agg
+prices_agg:
+	scrapy crawl prices -a max_hotels=100 -a agg_days=1
+
+.PHONY: prices
+prices:
+	scrapy crawl prices -a max_hotels=100 -a agg_days=0
 
 
-.PHONY: fast
-fast:
-	scrapy crawl spider -a countries=it,sr,za -a max_hotels=10 -a agg_days=1
+.PHONY: prices_fast
+prices_fast:
+	scrapy crawl prices -a countries=it,sr,za -a max_hotels=3 -a agg_days=0
+
+.PHONY: prices_fast_agg
+prices_fast_agg:
+	scrapy crawl prices -a countries=it,sr,za -a max_hotels=3 -a agg_days=1
 
 .PHONY: countries
 countries:

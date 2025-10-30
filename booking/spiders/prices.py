@@ -82,8 +82,8 @@ def handle_failure(self, failure):
     elif failure.check(scrapy.core.downloader.handlers.http11.TunnelError):
         self.logger.warning("Tunnel connection failed.")
         
-class BookingSpider(scrapy.Spider):
-    name = "spider"
+class PricesSpider(scrapy.Spider):
+    name = "prices"
 
     def __init__(self, countries: str | None = None, agg_days=False, max_hotels=None, shuffle=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,8 +99,7 @@ class BookingSpider(scrapy.Spider):
     async def start(self):
         self.logger.info(f"Starting to scrape {self.url}")
         yield scrapy.Request(self.url, self.parse_hotels_archives_page, priority=10,
-                    errback=partial(handle_failure, self),
-                    dont_filter=True)
+                    errback=partial(handle_failure, self))
     
     def parse_hotels_archives_page(self, response):
         """
@@ -116,8 +115,7 @@ class BookingSpider(scrapy.Spider):
                 url, 
                 callback=self.parse_hotels_gzip_page,
                 priority=5,
-                errback=partial(handle_failure, self),
-                dont_filter=True             
+                errback=partial(handle_failure, self)            
             )
         self.archives_pb.total = len(en_urls)
         self.archives_pb.refresh()
@@ -164,7 +162,6 @@ class BookingSpider(scrapy.Spider):
                 callback=self.parse_prices,
                 priority=0,
                 errback=partial(handle_failure, self),
-                dont_filter=True,
                 meta=dict(hotel_id=parsed["hotel_id"], country=parsed["country"]),
             )
                 
