@@ -2,6 +2,7 @@ from datetime import date
 from glob import glob
 import numpy as np
 import pandas as pd
+import scrapy
 
 from parse import parse
 
@@ -42,3 +43,18 @@ def read_jsonl_files(path: str):
         merged = pd.concat([merged, newdf.loc[new]])
         print(f"Total: {len(merged)} read: {len(newdf)} new: {len(new)} deleted: {new_deleted_count}")
     return merged
+
+
+def handle_failure(self, failure):
+    # This is called on failure (DNS errors, timeouts, etc.)
+    self.logger.error(repr(failure))
+
+    # Optionally retry or do something else:
+    request = failure.request
+    if failure.check(scrapy.spidermiddlewares.httperror.HttpError):
+        response = failure.value.response
+        self.logger.warning(f"HTTP error {response.status} on {response.url}")
+    elif failure.check(scrapy.downloadermiddlewares.retry.RetryMiddleware):
+        self.logger.warning("Request failed and gave up retrying.")
+    elif failure.check(scrapy.core.downloader.handlers.http11.TunnelError):
+        self.logger.warning("Tunnel connection failed.")

@@ -6,20 +6,7 @@ from functools import partial
 
 from tqdm import tqdm
 
-
-def handle_failure(self, failure):
-    # This is called on failure (DNS errors, timeouts, etc.)
-    self.logger.error(repr(failure))
-
-    # Optionally retry or do something else:
-    request = failure.request
-    if failure.check(scrapy.spidermiddlewares.httperror.HttpError):
-        response = failure.value.response
-        self.logger.warning(f"HTTP error {response.status} on {response.url}")
-    elif failure.check(scrapy.downloadermiddlewares.retry.RetryMiddleware):
-        self.logger.warning("Request failed and gave up retrying.")
-    elif failure.check(scrapy.core.downloader.handlers.http11.TunnelError):
-        self.logger.warning("Tunnel connection failed.")
+from booking import utils
 
 
 class CountriesSpider(scrapy.Spider):
@@ -36,7 +23,7 @@ class CountriesSpider(scrapy.Spider):
             self.url, 
             self.parse_countries_gzip,
             priority=10,
-            errback=partial(handle_failure, self),
+            errback=partial(utils.handle_failure, self),
             dont_filter=True
         )
     
@@ -75,8 +62,7 @@ class CountriesSpider(scrapy.Spider):
                 destination_url,
                 callback=self.parse_country_page,
                 priority=5,
-                errback=partial(handle_failure, self),
-                dont_filter=True,
+                errback=partial(utils.handle_failure, self),
                 meta={'country_code': country_code}
             )
         self.pb.total = len(country_codes)

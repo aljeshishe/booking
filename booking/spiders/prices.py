@@ -13,6 +13,8 @@ import re
 import scrapy
 from tqdm import tqdm
 
+from booking import utils
+
 NOW_DATE_STR = datetime.now().strftime("%Y-%m-%d")
 PRICES_REQUEST_DATA = {
     "operationName": "AvailabilityCalendar",
@@ -68,19 +70,6 @@ def get(response, selector, type=str, replace=None):
     result = type(result)
     return result 
 
-def handle_failure(self, failure):
-    # This is called on failure (DNS errors, timeouts, etc.)
-    self.logger.error(repr(failure))
-
-    # Optionally retry or do something else:
-    request = failure.request
-    if failure.check(scrapy.spidermiddlewares.httperror.HttpError):
-        response = failure.value.response
-        self.logger.warning(f"HTTP error {response.status} on {response.url}")
-    elif failure.check(scrapy.downloadermiddlewares.retry.RetryMiddleware):
-        self.logger.warning("Request failed and gave up retrying.")
-    elif failure.check(scrapy.core.downloader.handlers.http11.TunnelError):
-        self.logger.warning("Tunnel connection failed.")
         
 class PricesSpider(scrapy.Spider):
     name = "prices"
@@ -99,7 +88,7 @@ class PricesSpider(scrapy.Spider):
     async def start(self):
         self.logger.info(f"Starting to scrape {self.url}")
         yield scrapy.Request(self.url, self.parse_hotels_archives_page, priority=10,
-                    errback=partial(handle_failure, self))
+                    errback=partial(utils.handle_failure, self))
     
     def parse_hotels_archives_page(self, response):
         """
@@ -115,7 +104,7 @@ class PricesSpider(scrapy.Spider):
                 url, 
                 callback=self.parse_hotels_gzip_page,
                 priority=5,
-                errback=partial(handle_failure, self)            
+                errback=partial(utils.handle_failure, self)            
             )
         self.archives_pb.total = len(en_urls)
         self.archives_pb.refresh()
@@ -161,7 +150,7 @@ class PricesSpider(scrapy.Spider):
                 method="POST",
                 callback=self.parse_prices,
                 priority=0,
-                errback=partial(handle_failure, self),
+                errback=partial(utils.handle_failure, self),
                 meta=dict(hotel_id=parsed["hotel_id"], country=parsed["country"]),
             )
                 
