@@ -74,11 +74,11 @@ def get(response, selector, type=str, replace=None):
 class PricesSpider(scrapy.Spider):
     name = "prices"
 
-    def __init__(self, countries: str | None = None, agg_days=False, max_hotels=None, shuffle=False, *args, **kwargs):
+    def __init__(self, countries: str | None = None, agg_days=False, max_hotels=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.countries = countries
-        self.shuffle = bool(shuffle)
-        self.agg_days = bool(agg_days)
+        # we use int, because bool("0") = bool("1") = True
+        self.agg_days = int(agg_days)
         self.archives_pb = tqdm(desc="Crawling archives", unit="page", total=0) 
         self.hotels_pb = tqdm(desc="Crawling hotels", unit="page", total=0) 
         self.url = "https://www.booking.com/sitembk-hotel-index.xml"
