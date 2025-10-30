@@ -19,7 +19,7 @@
             "request": "launch",
             "program": ".venv/bin/scrapy",
             "console": "integratedTerminal",
-            //"args": "crawl spider -a max_hotels=100 -a shuffle=1"
+            //"args": "crawl hotels -a max_hotels=100 -a shuffle=1"
             "args": "crawl countries"
         }
 
