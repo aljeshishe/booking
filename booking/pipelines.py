@@ -12,7 +12,8 @@ def escape(s):
 class BookingPipeline:
     def open_spider(self, spider):
         now_str = datetime.now().isoformat(sep=" ", timespec="seconds")
-        self.file_path = Path(f"output/{now_str}.jsonl_")
+        name = f"{spider.name}.jsonl_" if spider.name == "countries" else f"{spider.name}-{now_str}.jsonl_"
+        self.file_path = Path(f"output") / name
         self.file_path.parent.mkdir(parents=True, exist_ok=True)
         self.file = self.file_path.open("w")
         spider.logger.info(f"Writing to {self.file_path}")

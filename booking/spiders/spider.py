@@ -106,8 +106,8 @@ class BookingSpider(scrapy.Spider):
         """
         Parse the initial page to find the maximum page number.
         """
-        NAMESPACES = dict(sm="http://www.sitemaps.org/schemas/sitemap/0.9")
-        urls = response.xpath('//sm:sitemap/sm:loc/text()', namespaces=NAMESPACES).getall()
+        response.selector.remove_namespaces()
+        urls = response.xpath('//sitemap/loc/text()').getall()
         self.logger.info(f"Found {len(urls)} URLs in sitemap")
         
         en_urls = [url for url in urls if "sitembk-hotel-en-gb" in url]
@@ -136,12 +136,6 @@ class BookingSpider(scrapy.Spider):
             encoding='utf-8'
         )
 
-        # countries = [country for country in self.countries if f"https://www.booking.com/hotel/{country}" in response.text]
-        # if not countries:
-        #     return
-        # countries_str = " ".join(countries)
-        # self.logger.warning(f"Found countries urls [{countries_str}] in response for {response.url}")
-        
         # Now use XPath on the new response
         urls = response.xpath('//urlset/url/loc/text()').getall()
         self.logger.info(f"Found {len(urls)} hotel URLs in gzipped sitemap")
