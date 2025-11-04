@@ -1,0 +1,144 @@
+from collections import Counter, defaultdict
+import random
+import copy
+from datetime import datetime
+import email
+from functools import partial
+import gzip
+import io
+import json
+import numpy as np
+from parse import parse 
+import re
+import scrapy
+from tqdm import tqdm
+
+from booking import utils
+
+NOW_DATE_STR = datetime.now().strftime("%Y-%m-%d")
+
+def getall(response, selector, replace=None):
+    result = response.css(selector).getall()
+    if result is None:
+        return None
+
+    result = [item.strip() for item in result]
+    if replace:
+        pattern = '|'.join(map(re.escape, replace.split()))
+        result = [re.sub(pattern, "", item) for item in result]
+        result = [item.strip() for item in result]
+
+    return result
+
+def get(response, selector, type=str, replace=None):
+    result = response.css(selector).get()
+    if result is None:
+        return None
+    
+    result = result.strip()
+    
+    if replace:
+        pattern = '|'.join(map(re.escape, replace.split()))
+        result = re.sub(pattern, "", result)
+        result = result.strip()
+
+    result = type(result)
+    return result 
+
+        
+class CoordsSpider(scrapy.Spider):
+    name = "coords"
+
+    def __init__(self, countries: str | None = None, agg_days=False, max_hotels=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.countries = countries
+        # we use int, because bool("0") = bool("1") = True
+        self.agg_days = int(agg_days)
+        self.archives_pb = tqdm(desc="Crawling archives", unit="page", total=0) 
+        self.hotels_pb = tqdm(desc="Crawling hotels", unit="page", total=0) 
+        self.url = "https://www.booking.com/sitembk-hotel-index.xml"
+        # self.max_hotels = int(max_hotels)
+        self._counter = defaultdict(int)
+
+    async def start(self):
+        self.logger.info(f"Starting to scrape {self.url}")
+        yield scrapy.Request(self.url, self.parse_hotels_archives_page, priority=10,
+                    errback=partial(utils.handle_failure, self))
+    
+    def parse_hotels_archives_page(self, response):
+        """
+        Parse the initial page to find the maximum page number.
+        """
+        response.selector.remove_namespaces()
+        urls = response.xpath('//sitemap/loc/text()').getall()
+        self.logger.info(f"Found {len(urls)} URLs in sitemap")
+        
+        en_urls = [url for url in urls if "sitembk-hotel-en-gb" in url]
+        for url in en_urls:
+            yield scrapy.Request(
+                url, 
+                callback=self.parse_hotels_gzip_page,
+                priority=5,
+                errback=partial(utils.handle_failure, self)            
+            )
+        self.archives_pb.total = len(en_urls)
+        self.archives_pb.refresh()
+            
+
+    def parse_hotels_gzip_page(self, response):
+        """
+        Parse the gzip page to find the maximum page number.
+        """
+        self.archives_pb.update(1)
+        
+
+        response = scrapy.http.response.text.TextResponse(
+            url=response.url,
+            body=gzip.GzipFile(fileobj=io.BytesIO(response.body)).read(),
+            encoding='utf-8'
+        )
+
+        # Now use XPath on the new response
+        urls = response.xpath('//urlset/url/loc/text()').getall()
+        self.logger.info(f"Found {len(urls)} hotel URLs in gzipped sitemap")
+        
+        countries = self.countries.split(",") if self.countries else []
+        random.shuffle(urls)
+        for url in urls:
+            parsed = parse("https://www.booking.com/hotel/{country}/{hotel_id}.{lang}.html", url)
+            # country = parsed["country"]
+            # if countries and country not in countries:
+            #     continue
+            
+            # if self._counter[country] >= self.max_hotels:
+            #     continue
+            # self._counter[country] += 1
+            self.hotels_pb.total += 1
+            self.hotels_pb.refresh()
+
+            result = dict(hotel_id=parsed["hotel_id"], country=parsed["country"], url=url)
+            yield scrapy.Request(url=url,
+                                 callback=self.parse_hotel,
+                                 priority=0,
+                                 errback=partial(utils.handle_failure, self),
+                                 meta=dict(result=result))
+                
+    def parse_hotel(self, response):
+        coords = response.css('a#map_trigger_header::attr(data-atlas-latlng)').get()
+        
+        lat = lon = None
+        if coords:
+            lat, lon = coords.split(",")
+            lat = round(float(lat), 5)
+            lon = round(float(lon), 5)
+        result = response.meta["result"]
+        result['lat'] = lat
+        result['lon'] = lon
+        yield result
+    
+    def closed(self, reason):  
+        # Close the progress bar when the spider finishes  
+        if self.archives_pb:  
+            self.archives_pb.close()     
+        if self.hotels_pb:  
+            self.hotels_pb.close()            

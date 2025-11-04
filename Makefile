@@ -19,6 +19,9 @@ prices_fast_agg:
 countries:
 	scrapy crawl countries
 
+.PHONY: coords
+coords:
+	scrapy crawl coords
 
 .PHONY: sync
 sync:
