@@ -138,31 +138,50 @@ class PricesSpider(scrapy.Spider):
             if self._counter[country] >= self.max_hotels:
                 continue
             self._counter[country] += 1
-
             self.hotels_pb.total += 1
             self.hotels_pb.refresh()
-            prices_request_data = copy.deepcopy(PRICES_REQUEST_DATA)
-            prices_request_data["variables"]["input"]["pagenameDetails"]["pagename"] = parsed["hotel_id"]
-            prices_request_data["variables"]["input"]["pagenameDetails"]["countryCode"] = parsed["country"]
-            yield scrapy.Request(
-                "https://www.booking.com/dml/graphql?lang=en",
-                body=json.dumps(prices_request_data),
-                method="POST",
-                callback=self.parse_prices,
-                priority=0,
-                errback=partial(utils.handle_failure, self),
-                meta=dict(hotel_id=parsed["hotel_id"], country=parsed["country"]),
-            )
+
+            result = dict(hotel_id=parsed["hotel_id"], country=parsed["country"], url=url)
+            yield scrapy.Request(url=url,
+                                 callback=self.parse_hotel,
+                                 priority=0,
+                                 errback=partial(utils.handle_failure, self),
+                                 meta=dict(result=result))
                 
+    def parse_hotel(self, response):
+        coords = response.css('a#map_trigger_header::attr(data-atlas-latlng)').get()
+        
+        lat = lon = None
+        if coords:
+            lat, lon = coords.split(",")
+            lat = round(float(lat), 4)
+            lon = round(float(lon), 4)
+        result = response.meta["result"]
+        result['lat'] = lat
+        result['lon'] = lon
+        
+        prices_request_data = copy.deepcopy(PRICES_REQUEST_DATA)
+        prices_request_data["variables"]["input"]["pagenameDetails"]["pagename"] = result["hotel_id"]
+        prices_request_data["variables"]["input"]["pagenameDetails"]["countryCode"] = result["country"]
+        yield scrapy.Request(
+            "https://www.booking.com/dml/graphql?lang=en",
+            body=json.dumps(prices_request_data),
+            method="POST",
+            callback=self.parse_prices,
+            priority=0,
+            errback=partial(utils.handle_failure, self),
+            meta=dict(result=result),
+        )
+        
     def parse_prices(self, response):
         self.hotels_pb.update(1)
         
         days = response.json()["data"]["availabilityCalendar"]["days"]
+        result = response.meta["result"]
         if self.agg_days:
             prices = [int(day["avgPrice"]) for day in days if day["available"]]
             if prices:
-                result = dict(hotel_id=response.meta["hotel_id"], 
-                              country=response.meta["country"],
+                result = dict(**result, 
                               min_price=min(prices),
                               max_price=max(prices),
                               avg_price=np.round(np.mean(prices)),
@@ -170,11 +189,10 @@ class PricesSpider(scrapy.Spider):
                 yield result
         else:
             for day in days:
-                result = dict(hotel_id=response.meta["hotel_id"], 
-                            country=response.meta["country"],
-                            date=day.get("checkin", {}),
-                            price=int(day["avgPrice"]) if day["available"] else None,
-                            minLengthOfStay=day["minLengthOfStay"])
+                result = dict(**result, 
+                              date=day.get("checkin", {}),
+                              price=int(day["avgPrice"]) if day["available"] else None,
+                              minLengthOfStay=day["minLengthOfStay"])
                 yield result
 
     

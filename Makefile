@@ -1,6 +1,6 @@
 .PHONY: prices_agg
 prices_agg:
-	scrapy crawl prices -a max_hotels=100 -a agg_days=1
+	scrapy crawl prices -a max_hotels=1000 -a agg_days=1
 
 .PHONY: prices
 prices:
